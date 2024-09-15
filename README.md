@@ -9,6 +9,21 @@ Welcome to **The Downloader App**! This application allows you to easily downloa
 - **Cancel Download**: Option to cancel an ongoing download. ❌
 - **User-Friendly Interface**: Intuitive UI designed with PyQt5. 🎨
 
+## Screenshots 📸
+
+### Main Window
+
+![Main Window](assets/screenshots/main_window.png)
+
+### Progress Bar
+
+![Progress Bar](assets/screenshots/progress_bar.png)
+
+### Finished Page
+
+![Downloading Page](assets/screenshots/download_finished.png)
+
+
 ## Installation ⚙️
 
 To run the application, you'll need to have Python and the required dependencies installed. Follow these steps:
@@ -57,3 +72,7 @@ For any questions or feedback, feel free to reach out:
 ## License 📜
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Thank you for checking out The Downloader App. Happy downloading! 🎉
