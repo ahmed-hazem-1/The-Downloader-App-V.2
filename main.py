@@ -114,28 +114,39 @@ class MainApp(QMainWindow, FORM_CLASS):
             file_downloader.Set_File_Info(self, temp_name, temp_size, temp_type)
 
     def Download_File(self):
-        url = self.lineEdit.text()
+        url = self.lineEdit.text()  # Get URL from the input field
         if not url:
             self.show_error_message("Please enter a valid URL.")
             return
 
+        # Ensure the save path is properly defined
         file_path = self.full_save_path
-        downloading_page_2 = DPage.DownloadingPage(self)
+        if not file_path:
+            self.show_error_message("Please choose a valid save path.")
+            return
 
-        # Initialize the downloading page with the current file info
-        file_downloader.Set_File_Info(self, self.file_name_label.text(), self.file_size_label.text(),
-                                      self.file_type_label.text())
+        # Create a new DownloadingPage instance, passing the URL and file path
+        downloading_page_2 = DPage.DownloadingPage(self, url=url, save_path=file_path)
+
+        # Update the downloading page with the file information
+        downloading_page_2.update_Downloading_info(
+            self.file_name_label.text(),
+            self.file_size_label.text(),
+            self.file_type_label.text()
+        )
+
+        # Show the downloading page
         downloading_page_2.show()
-        downloading_page_2.update_Downloading_info(self.file_name_label.text(),
-                                                   self.file_size_label.text(),
-                                                   self.file_type_label.text())
 
         # Create a new DownloadWorker instance and start the download
-        self.download_thread = file_downloader.DownloadWorker(url, file_path)  # Store the DownloadWorker instance
-        self.download_thread.progress.connect(
-            downloading_page_2.progress)  # Connect the progress signal to the progress slot
-        self.download_thread.finished.connect(self.on_download_finished)  # Connect the finished signal to the handler
-        self.download_thread.canceled.connect(self.on_download_canceled)  # Connect the canceled signal to the handler
+        self.download_thread = file_downloader.DownloadWorker(url, file_path)
+
+        # Connect signals for progress, finished, and canceled events
+        self.download_thread.progress.connect(downloading_page_2.progress)
+        self.download_thread.finished.connect(self.on_download_finished)
+        self.download_thread.canceled.connect(self.on_download_canceled)
+
+        # Start the download thread
         self.download_thread.start()
 
     def on_download_finished(self):

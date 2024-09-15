@@ -1,7 +1,7 @@
 import requests
 from urllib.parse import urlparse, parse_qs, unquote
 import os
-
+import time
 from PyQt5.QtCore import pyqtSignal, QThread
 import UI_Pages_PY.Downloading_UI_Page as DP
 import Utils.utils as UT
@@ -47,33 +47,40 @@ def Set_File_Info(ui, file_name, file_size, file_type):
         ui.file_type_label.setText(file_type)
 
 
-import requests
-import os
-
-def Download_File(url, path, worker=None):
+def Download_File(url, path, worker=None, resume_byte_pos=0):
     """
     Download the file from the URL and save it to the specified path.
-    The worker is used to check for cancellation.
+    The worker is used to check for pause/resume/cancellation.
+    Supports resuming downloads using resume_byte_pos.
     """
-    response = requests.get(url, stream=True, verify=False)
-    file_path = os.path.join(path)
-    total_size = int(response.headers.get('Content-Length', 0))
-    downloaded_size = 0
+    headers = {}
+    if resume_byte_pos > 0:
+        headers['Range'] = f'bytes={resume_byte_pos}-'
 
-    with open(file_path, 'wb') as file:
+    response = requests.get(url, stream=True, headers=headers, verify=False)
+    total_size = int(response.headers.get('Content-Length', 0)) + resume_byte_pos
+    downloaded_size = resume_byte_pos
+
+    # Open the file in append mode if resuming
+    mode = 'ab' if resume_byte_pos > 0 else 'wb'
+    file_path = os.path.join(path)
+
+    with open(file_path, mode) as file:
         for chunk in response.iter_content(chunk_size=1024):
+            # Check for cancellation
             if worker and worker.is_canceled:
-                return  # Exit if canceled
+                break  # Exit if canceled
+
+            # Check for pause
+            while worker.is_paused:
+                time.sleep(0.1)  # Sleep for a while until resumed
 
             if chunk:
                 file.write(chunk)
                 downloaded_size += len(chunk)
-                if total_size > 0:
+                print(f"Downloaded: {downloaded_size} / {total_size}")
+                if total_size > 0 and worker:
                     worker.progress.emit(downloaded_size, total_size)  # Emit progress
-
-
-
-
 
 
 class DownloadWorker(QThread):
@@ -86,11 +93,17 @@ class DownloadWorker(QThread):
         self.url = url
         self.path = path
         self.is_canceled = False  # Initialize cancellation flag
+        self.is_paused = False  # Initialize pause flag
+        self.downloaded_size = 0  # Store downloaded size for resuming
 
     def run(self):
         try:
-            # Pass the worker instance to the Download_File function
-            Download_File(self.url, self.path, self)
+            # Check if the file already exists and get its size (resume case)
+            if os.path.exists(self.path):
+                self.downloaded_size = os.path.getsize(self.path)
+
+            # Pass the worker instance and resume byte position to the Download_File function
+            Download_File(self.url, self.path, self, self.downloaded_size)
 
             if not self.is_canceled:
                 self.finished.emit()  # Notify that the download is complete
@@ -103,3 +116,9 @@ class DownloadWorker(QThread):
     def Cancel_Download(self):
         self.is_canceled = True  # Set the flag to cancel the download
 
+    def Pause_Download(self):
+        self.is_paused = True  # Set the flag to pause the download
+
+    def Resume_Download(self):
+        self.is_paused = False  # Clear the pause flag
+        # The run method will continue from where it paused, no need to restart the download process
